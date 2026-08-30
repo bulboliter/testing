@@ -1,0 +1,22 @@
+name: vastai-autodestroy
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 min (GitHub's minimum granularity)
+  workflow_dispatch:         # allows manual trigger from the Actions tab
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install vastai CLI
+        run: pip install vastai
+
+      - name: Destroy non-running instances
+        env:
+          VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
+        run: |
+          vastai set api-key "$VAST_API_KEY"
+          vastai show instances --raw | jq -r '.[] | select(.actual_status != "running") | .id' | while read -r id; do
+            echo "$(date): destroying instance $id (status not running)"
+            vastai destroy instance "$id"
+          done
