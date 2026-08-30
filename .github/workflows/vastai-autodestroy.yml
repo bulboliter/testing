@@ -11,12 +11,15 @@ jobs:
       - name: Install vastai CLI
         run: pip install vastai
 
-      - name: Destroy non-running instances
+      - name: Destroy outbid instances
         env:
           VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
         run: |
           vastai set api-key "$VAST_API_KEY"
-          vastai show instances --raw | jq -r '.[] | select(.actual_status != "running") | .id' | while read -r id; do
-            echo "$(date): destroying instance $id (status not running)"
+          # Only touch bid (interruptible) instances that you still want running
+          # (intended_status == running) but got kicked off (actual_status == exited).
+          # On-demand instances and anything you stopped yourself are left alone.
+          vastai show instances --raw | jq -r '.[] | select(.is_bid == true and .intended_status == "running" and .actual_status == "exited") | .id' | while read -r id; do
+            echo "$(date): instance $id outbid (exited), destroying"
             vastai destroy instance "$id"
           done
