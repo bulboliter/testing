@@ -11,25 +11,21 @@ jobs:
       - name: Install vastai CLI
         run: pip install vastai
 
-      - name: Debug - dump raw instance state (temporary, remove after verifying field names)
-        env:
-          VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
-        run: |
-          vastai set api-key "$VAST_API_KEY"
-          vastai show instances --raw | jq '.'
-
       - name: Destroy outbid instances
         env:
           VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
         run: |
           vastai set api-key "$VAST_API_KEY"
-          # An interruptible (bid) instance that gets outbid moves to
-          # actual_status == "stopped" (NOT "exited" - Vast's own CLI docs
-          # confirm this), while intended_status stays "running" since you
-          # never asked for it to stop. That combination is what we clean up.
+          # Verified live 2026-09-04 against a real outbid RTX 4080S instance
+          # (id 49772848): is_bid=true, actual_status="exited", cur_state and
+          # intended_status both "stopped". intended_status is NOT a useful
+          # discriminator here (it flips to "stopped" right along with
+          # actual_status once outbid, contrary to what Vast's CLI docs imply)
+          # so don't gate on it - is_bid + actual_status=="exited" is what
+          # actually matched the real data.
           # -y skips the interactive confirmation prompt, which otherwise
           # hits EOF on a non-interactive runner and silently no-ops.
-          vastai show instances --raw | jq -r '.[] | select(.intended_status == "running" and .actual_status == "stopped") | .id' | while read -r id; do
-            echo "$(date): instance $id outbid (stopped), destroying"
+          vastai show instances --raw | jq -r '.[] | select(.is_bid == true and .actual_status == "exited") | .id' | while read -r id; do
+            echo "$(date): instance $id outbid (exited), destroying"
             vastai destroy instance "$id" -y
           done
