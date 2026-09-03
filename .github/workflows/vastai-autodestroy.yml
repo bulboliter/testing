@@ -11,6 +11,13 @@ jobs:
       - name: Install vastai CLI
         run: pip install vastai
 
+      - name: Debug - dump raw instance state (temporary, remove after verifying field names)
+        env:
+          VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
+        run: |
+          vastai set api-key "$VAST_API_KEY"
+          vastai show instances --raw | jq '.'
+
       - name: Destroy outbid instances
         env:
           VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
