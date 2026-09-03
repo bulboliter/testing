@@ -1,7 +1,7 @@
 name: vastai-autodestroy
 on:
   schedule:
-    - cron: '*/5 * * * *'   # every 5 min (GitHub's minimum granularity)
+    - cron: '*/15 * * * *'  # every 15 min
   workflow_dispatch:         # allows manual trigger from the Actions tab
 
 jobs:
