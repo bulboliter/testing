@@ -1,0 +1,28 @@
+name: vastai-autodestroy
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 min (GitHub's minimum granularity)
+  workflow_dispatch:         # allows manual trigger from the Actions tab
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install vastai CLI
+        run: pip install vastai
+
+      - name: Destroy outbid instances
+        env:
+          VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
+        run: |
+          vastai set api-key "$VAST_API_KEY"
+          # An interruptible (bid) instance that gets outbid moves to
+          # actual_status == "stopped" (NOT "exited" - Vast's own CLI docs
+          # confirm this), while intended_status stays "running" since you
+          # never asked for it to stop. That combination is what we clean up.
+          # -y skips the interactive confirmation prompt, which otherwise
+          # hits EOF on a non-interactive runner and silently no-ops.
+          vastai show instances --raw | jq -r '.[] | select(.intended_status == "running" and .actual_status == "stopped") | .id' | while read -r id; do
+            echo "$(date): instance $id outbid (stopped), destroying"
+            vastai destroy instance "$id" -y
+          done
